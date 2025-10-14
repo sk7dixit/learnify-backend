@@ -13,6 +13,24 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- Drop existing tables with CASCADE to handle dependencies
+DROP TABLE IF EXISTS public.user_roles CASCADE;
+DROP TABLE IF EXISTS public.user_notifications CASCADE;
+DROP TABLE IF EXISTS public.user_favourites CASCADE;
+DROP TABLE IF EXISTS public.suggestions CASCADE;
+DROP TABLE IF EXISTS public.subscriptions CASCADE;
+DROP TABLE IF EXISTS public.roles CASCADE;
+DROP TABLE IF EXISTS public.payments CASCADE;
+DROP TABLE IF EXISTS public.otps CASCADE;
+DROP TABLE IF EXISTS public.notifications CASCADE;
+DROP TABLE IF EXISTS public.note_ratings CASCADE;
+DROP TABLE IF EXISTS public.note_access_permissions CASCADE;
+DROP TABLE IF EXISTS public.chat_messages CASCADE;
+DROP TABLE IF EXISTS public.app_settings CASCADE;
+DROP TABLE IF EXISTS public.user_views CASCADE;
+DROP TABLE IF EXISTS public.notes CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
+
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 
@@ -623,12 +641,6 @@ CREATE INDEX idx_subscriptions_end_date ON public.subscriptions USING btree (end
 CREATE INDEX idx_subscriptions_user_id ON public.subscriptions USING btree (user_id);
 
 --
--- Name: app_settings set_timestamp; Type: TRIGGER; Schema: public;
---
--- CREATE TRIGGER set_timestamp BEFORE UPDATE ON public.app_settings FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
-
-
---
 -- Name: chat_messages chat_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public;
 --
 ALTER TABLE ONLY public.chat_messages
@@ -733,3 +745,4 @@ ALTER TABLE ONLY public.user_views
 --
 -- PostgreSQL database dump complete
 --
+
