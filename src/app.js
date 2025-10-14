@@ -15,7 +15,9 @@ const chatRoutes = require("./routes/chatRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const app = express();
 
-// --- SECURITY MIDDLEWARE ---
+// THE FIX for express-rate-limit: Tell Express to trust headers from Render's proxy
+app.set('trust proxy', 1);
+
 app.use(helmet());
 
 const apiLimiter = rateLimit({
@@ -34,8 +36,6 @@ const authLimiter = rateLimit({
     message: "Too many authentication attempts from this IP, please try again after 15 minutes.",
 });
 
-
-// --- CORE MIDDLEWARE ---
 app.use(
   cors({
     origin: [
@@ -51,13 +51,16 @@ app.use(
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
-
-// --- APPLY RATE LIMITERS AND ROUTES ---
 app.use("/api/users/login", authLimiter);
 app.use("/api/users/register", authLimiter);
-// ... other routes
+app.use("/api/users/forgot-password", authLimiter);
+app.use("/api/users/reset-password", authLimiter);
+app.use("/api/users/login-otp-request", authLimiter);
+app.use("/api/users/login-otp-verify", authLimiter);
+app.use("/api/users/verify-email-otp", authLimiter);
 
 app.use("/api/", apiLimiter);
+
 app.use("/api/users", userRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/admin", adminRoutes);
