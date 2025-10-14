@@ -1,10 +1,13 @@
 // server.js
+const cors = require('cors');
 const app = require('./app');
 require('dotenv').config();
 const { checkAllUsers } = require('./utils/badgeService'); // Corrected import path for the badge service
 
 const PORT = process.env.PORT || 5000;
+const frontendURL = "https://learnify-frontend-34du.onrender.com";
 
+app.use(cors({ origin: frontendURL }));
 // The database connection is now handled by the pool imported in other files (like controllers).
 // No need to connect here again.
 
