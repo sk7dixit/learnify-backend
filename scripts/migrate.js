@@ -5,12 +5,12 @@ const pool = require('../src/config/db.js');
 const runMigration = async () => {
   console.log('Starting database migration...');
   try {
-    const schemaPath = path.join(__dirname, '..', 'schema.sql');
-    const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-
-    // Test the connection before running the full schema
+    // This will now use the correctly configured pool from db.js
     await pool.query('SELECT NOW()');
     console.log('✅ Connected to PostgreSQL');
+
+    const schemaPath = path.join(__dirname, '..', 'schema.sql');
+    const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 
     console.log('Executing schema.sql...');
     await pool.query(schemaSql);
@@ -19,11 +19,11 @@ const runMigration = async () => {
 
   } catch (error) {
     console.error('❌ Error during database migration:', error);
-    process.exit(1); // Exit with an error code
+    process.exit(1);
 
   } finally {
     console.log('Closing database connection...');
-    await pool.end(); // This will now work and allow the script to exit.
+    await pool.end();
     console.log('Connection closed. Build will now complete.');
   }
 };
