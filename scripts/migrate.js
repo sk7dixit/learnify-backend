@@ -12,17 +12,14 @@ const runMigration = async () => {
     await pool.query(schemaSql);
 
     console.log('✅ Database migration completed successfully.');
-
-    // Explicitly exit the script with a success code
-    process.exit(0);
-
   } catch (error) {
     console.error('❌ Error during database migration:', error);
     process.exit(1);
   } finally {
-    // This will run, but the process.exit() above will ensure the script terminates.
     console.log('Closing database connection...');
-    await pool.end();
-    console.log('Connection closed.');
+    await pool.end(); // This will now work correctly and allow the script to exit.
+    console.log('Connection closed. Build will now proceed.');
   }
 };
+
+runMigration();

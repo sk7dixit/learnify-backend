@@ -1,35 +1,31 @@
 const { Pool } = require("pg");
 require("dotenv").config();
 
-// This configuration object will be used to create the connection pool.
-let config;
+// Determine if we are in production (on Render)
+const isProduction = process.env.NODE_ENV === "production";
 
-// Check if the DATABASE_URL environment variable is available (this is the case on Render)
-if (process.env.DATABASE_URL) {
-  // Production configuration (for Render)
-  config = {
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false, // Required for Render's managed PostgreSQL
-    },
-  };
-  console.log("✅ Production DB config loaded (using DATABASE_URL)");
-} else {
-  // Development configuration (for your local machine)
-  config = {
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASS,
-    port: process.env.DB_PORT,
-  };
-  console.log("✅ Development DB config loaded (using .env file)");
-}
+// Configuration for the database connection
+const connectionConfig = isProduction
+  ? {
+      // In production, use the DATABASE_URL provided by Render
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    }
+  : {
+      // In development, use individual variables from your .env file
+      user: process.env.DB_USER,
+      host: process.env.DB_HOST,
+      database: process.env.DB_NAME,
+      password: process.env.DB_PASS,
+      port: process.env.DB_PORT,
+    };
 
-const pool = new Pool(config);
+const pool = new Pool(connectionConfig);
 
-pool.connect()
-  .then(() => console.log("✅ Connected to PostgreSQL"))
-  .catch(err => console.error("❌ DB Connection Error", err));
+// We DO NOT call pool.connect() here.
+// The pool will handle connections automatically when a query is made.
+// This is the main fix.
 
 module.exports = pool;
