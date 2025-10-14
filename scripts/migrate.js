@@ -16,8 +16,6 @@ const runMigration = async () => {
     console.error('❌ Error during database migration:', error);
     process.exit(1);
   } finally {
-    // THIS IS THE FIX: Ensure the database connection is always closed.
-    // This allows the script to exit and the Render build to complete.
     console.log('Closing database connection...');
     await pool.end();
     console.log('Connection closed.');
@@ -25,16 +23,3 @@ const runMigration = async () => {
 };
 
 runMigration();
-```
-
-### What To Do Now
-
-1.  **Update your `scripts/migrate.js`** file with the code above.
-2.  **Save the file.**
-3.  Push this final, polished change to your backend repository:
-    ```bash
-    git add scripts/migrate.js
-    git commit -m "chore: Gracefully close DB connection after migration"
-    git push origin main
-
-
