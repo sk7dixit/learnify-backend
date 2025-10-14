@@ -1,8 +1,7 @@
-// scripts/migrate.js
 const fs = require('fs');
 const path = require('path');
-// IMPORTANT: We are importing the pool from your existing db.js file
-const pool = require('../db'); // Assumes db.js is in the root directory
+// THE FIX: The path is now corrected to point to the db.js file inside src/config/
+const pool = require('../src/config/db.js');
 
 const runMigration = async () => {
   console.log('Starting database migration...');
@@ -25,3 +24,16 @@ const runMigration = async () => {
 };
 
 runMigration();
+```
+
+### What to Do Now
+
+1.  **Update your `scripts/migrate.js`** file with the code I provided above.
+2.  **Save the file.**
+3.  Push this final correction to your backend repository on GitHub:
+    ```bash
+    git add scripts/migrate.js
+    git commit -m "fix: Correct path to db.js in migration script"
+    git push origin main
+
+
