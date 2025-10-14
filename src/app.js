@@ -1,77 +1,68 @@
-require("dotenv").config();
+// backend/app.js
 const express = require("express");
 const cors = require("cors");
+const dotenv = require("dotenv");
 const path = require("path");
-const helmet = require("helmet");
+const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 
+dotenv.config();
+
+const { pool } = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
-const noteRoutes = require("./routes/noteRoutes");
-const adminRoutes = require("./routes/adminRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
-const suggestionRoutes = require("./routes/suggestionRoutes");
-const notificationRoutes = require("./routes/notificationRoutes");
-const chatRoutes = require("./routes/chatRoutes");
-const subscriptionRoutes = require("./routes/subscriptionRoutes");
+
 const app = express();
+const PORT = process.env.PORT || 5000;
 
-// THE FIX for express-rate-limit: Tell Express to trust headers from Render's proxy
-app.set('trust proxy', 1);
+// --- Middlewares ---
+app.use(express.json());
+app.use(cookieParser());
 
-app.use(helmet());
-
-const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: "Too many requests from this IP, please try again after 15 minutes.",
-});
-
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: "Too many authentication attempts from this IP, please try again after 15 minutes.",
-});
-
+// CORS setup (allow localhost + your Render frontend)
 app.use(
   cors({
     origin: [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://learnify-frontend-34du.onrender.com"
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "https://learnify-frontend-34du.onrender.com",
+      "https://learnify-frontend-git-main-yourusername.onrender.com", // add your actual production URL here
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
 
-app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
-
-app.use("/api/users/login", authLimiter);
-app.use("/api/users/register", authLimiter);
-app.use("/api/users/forgot-password", authLimiter);
-app.use("/api/users/reset-password", authLimiter);
-app.use("/api/users/login-otp-request", authLimiter);
-app.use("/api/users/login-otp-verify", authLimiter);
-app.use("/api/users/verify-email-otp", authLimiter);
-
-app.use("/api/", apiLimiter);
-
-app.use("/api/users", userRoutes);
-app.use("/api/notes", noteRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/subscriptions", subscriptionRoutes);
-app.use("/api/suggestions", suggestionRoutes);
-app.use("/api/notifications", notificationRoutes);
-
-app.get("/", (req, res) => {
-  res.send("🚀 Smart Notes Backend Running");
+// Simple logger (shows every incoming request)
+app.use((req, res, next) => {
+  console.log(`➡️  ${req.method} ${req.originalUrl}`);
+  next();
 });
 
-module.exports = app;
+// --- Rate Limiter for Auth routes ---
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many login attempts. Please try again later.",
+});
+
+// --- Routes ---
+app.use("/api/users/login", authLimiter); // limiter only for login
+app.use("/api/users", userRoutes);
+app.use("/api/payments", paymentRoutes);
+
+// --- Static file serving (for uploads/images) ---
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
+
+// --- Health check route ---
+app.get("/", (req, res) => {
+  res.send("✅ Learnify Backend is running.");
+});
+
+// --- Global error handler (optional) ---
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ message: "Server Error" });
+});
+
+// --- Start server ---
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
