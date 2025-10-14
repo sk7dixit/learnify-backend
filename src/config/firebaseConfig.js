@@ -1,17 +1,18 @@
 // src/config/firebaseConfig.js
-
 const { initializeApp } = require('firebase/app');
 const { getFirestore } = require('firebase/firestore');
+require('dotenv').config(); // Make sure environment variables are loaded
 
-// Your Firebase configuration
+// Your Firebase configuration - NOW SECURE
 const firebaseConfig = {
-  apiKey: "AIzaSyAHlk5Qt7xkGSHXnZ97BdVff3WbH6sI3qA",
-  authDomain: "learnify-chat-bd1d7.firebaseapp.com",
-  projectId: "learnify-chat-bd1d7",
-  storageBucket: "learnify-chat-bd1d7.appspot.com",
-  messagingSenderId: "470971321185",
-  appId: "1:470971321185:web:11b191e59dcc455f08d320",
-  measurementId: "G-B4WJ9367NL"
+  // IMPORTANT: Add these variables to your Render Environment settings!
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
