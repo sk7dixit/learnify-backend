@@ -23,14 +23,14 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 // --- CORS setup ---
-// This is a secure and flexible CORS configuration for production
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "http://12-7.0.0.1:5173",
-      process.env.FRONTEND_URL, // Use an environment variable for your production frontend
-    ].filter(Boolean), // Filter out undefined values
+      "http://127.0.0.1:5173",
+      "https://learnify-frontend-34du.onrender.com", // Your live frontend URL
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
     credentials: true,
   })
 );
@@ -43,20 +43,18 @@ app.use((req, res, next) => {
 
 // --- Rate Limiter for Authentication routes ---
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 25, // Max requests per IP
+  windowMs: 15 * 60 * 1000,
+  max: 25,
   message: "Too many login or registration attempts. Please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 // --- API Routes ---
-// Apply the rate limiter specifically to sensitive auth endpoints
 app.use("/api/users/login", authLimiter);
 app.use("/api/users/register", authLimiter);
 app.use("/api/users/forgot-password", authLimiter);
 
-// Register all your application routes
 app.use("/api/users", userRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/payments", paymentRoutes);
@@ -66,9 +64,7 @@ app.use("/api/suggestions", suggestionRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
 
-
 // --- Static file serving for PDF uploads ---
-// Serves files from the /uploads directory at the /uploads URL
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // --- Health Check Route ---
