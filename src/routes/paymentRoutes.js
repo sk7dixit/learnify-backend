@@ -1,76 +1,73 @@
-// backend/routes/paymentRoutes.js
+// src/routes/paymentRoutes.js
 const express = require("express");
-const { pool } = require("../config/db");
 const router = express.Router();
-const axios = require("axios");
+const authMiddleware = require("../middleware/authMiddleware");
+const pool = require('../config/db'); // <-- FIX: Import the central DB pool
 
-// Example PayPal webhook endpoint
-router.post("/paypal/webhook", async (req, res) => {
+// Import controller functions
+const { createPayPalOrder, capturePayPalOrder } = require("../controllers/paymentController");
+
+// ====================== CREATE PAYPAL ORDER ======================
+// Route: POST /api/payments/create-order
+router.post("/create-order", authMiddleware, createPayPalOrder);
+
+// ====================== CAPTURE PAYPAL ORDER ======================
+// Route: POST /api/payments/capture-order/:orderId
+router.post("/capture-order/:orderId", authMiddleware, capturePayPalOrder);
+
+// ====================== PAYPAL WEBHOOK ======================
+// Note: This route must be public, so it has no authMiddleware
+router.post("/paypal-webhook", async (req, res) => {
   try {
     const event = req.body;
-    console.log("📬 Received PayPal webhook:", event.event_type);
+    console.log("Received PayPal Webhook:", event.event_type);
 
-    // Example: log into DB for audit
-    await pool.query(
-      "INSERT INTO paypal_webhooks(event_type, payload) VALUES($1, $2)",
-      [event.event_type, JSON.stringify(event)]
-    );
+    if (event.event_type === "CHECKOUT.ORDER.COMPLETED") {
+      const order = event.resource;
+      const customId = order.purchase_units?.[0]?.custom_id;
 
-    res.status(200).send("Webhook received");
-  } catch (err) {
-    console.error("❌ PayPal Webhook Error:", err.message);
-    res.status(500).send("Server error");
-  }
-});
-
-// Example payment creation route (if you have one)
-router.post("/paypal/create-order", async (req, res) => {
-  try {
-    const accessToken = await getPayPalAccessToken();
-    const response = await axios.post(
-      `${process.env.PAYPAL_BASE_URL}/v2/checkout/orders`,
-      {
-        intent: "CAPTURE",
-        purchase_units: [
-          {
-            amount: {
-              currency_code: "USD",
-              value: "10.00",
-            },
-          },
-        ],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+      if (!customId) {
+        console.error("Webhook Error: custom_id is missing from the PayPal order.");
+        return res.status(400).send("Custom ID is required for processing.");
       }
-    );
-    res.json(response.data);
-  } catch (error) {
-    console.error("❌ PayPal create-order error:", error.response?.data || error.message);
-    res.status(500).json({ message: "Payment creation failed" });
+
+      const [userId, plan] = customId.split('_');
+
+      if (!userId || !plan) {
+        console.error(`Webhook Error: Invalid custom_id format: ${customId}`);
+        return res.status(400).send("Invalid custom ID format.");
+      }
+
+      let days;
+      if (plan === "weekly") days = 7;
+      else if (plan === "monthly") days = 30;
+      else if (plan === "semester") days = 180;
+      else {
+        console.error("Webhook Error: Invalid plan received from PayPal webhook:", plan);
+        return res.status(400).send("Invalid plan type.");
+      }
+
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+
+      // --- Use the central database pool for all queries ---
+      await pool.query(
+        `INSERT INTO subscriptions (user_id, plan, start_date, end_date, status)
+         VALUES ($1, $2, NOW(), $3, 'active')`,
+        [userId, plan, expiryDate]
+      );
+      await pool.query(
+        "UPDATE users SET subscription_expiry = $1, free_views = 0 WHERE id = $2",
+        [expiryDate, userId]
+      );
+      console.log(`✅ Subscription for user ${userId} successfully processed via PayPal webhook.`);
+    }
+
+    res.status(200).send("Webhook received and acknowledged.");
+  } catch (err) {
+    console.error("❌ PayPal webhook handling failed:", err.message);
+    res.status(500).send("Internal Server Error during webhook processing.");
   }
 });
-
-async function getPayPalAccessToken() {
-  const auth = Buffer.from(
-    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
-  ).toString("base64");
-
-  const response = await axios.post(
-    `${process.env.PAYPAL_BASE_URL}/v1/oauth2/token`,
-    "grant_type=client_credentials",
-    {
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    }
-  );
-
-  return response.data.access_token;
-}
 
 module.exports = router;

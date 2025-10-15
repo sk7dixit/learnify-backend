@@ -1,68 +1,86 @@
 // backend/app.js
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 
-dotenv.config();
-
-const { pool } = require("./config/db");
+// --- Import all your route files ---
 const userRoutes = require("./routes/userRoutes");
+const noteRoutes = require("./routes/noteRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const suggestionRoutes = require("./routes/suggestionRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // --- Middlewares ---
 app.use(express.json());
 app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
 
-// CORS setup (allow localhost + your Render frontend)
+// --- CORS setup ---
+// This is a secure and flexible CORS configuration for production
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "http://127.0.0.1:5173",
-      "https://learnify-frontend-34du.onrender.com",
-      "https://learnify-frontend-git-main-yourusername.onrender.com", // add your actual production URL here
-    ],
+      "http://12-7.0.0.1:5173",
+      process.env.FRONTEND_URL, // Use an environment variable for your production frontend
+    ].filter(Boolean), // Filter out undefined values
     credentials: true,
   })
 );
 
-// Simple logger (shows every incoming request)
+// --- Simple Request Logger ---
 app.use((req, res, next) => {
-  console.log(`➡️  ${req.method} ${req.originalUrl}`);
+  console.log(`➡️  ${req.method} ${req.path}`);
   next();
 });
 
-// --- Rate Limiter for Auth routes ---
+// --- Rate Limiter for Authentication routes ---
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: "Too many login attempts. Please try again later.",
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 25, // Max requests per IP
+  message: "Too many login or registration attempts. Please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// --- Routes ---
-app.use("/api/users/login", authLimiter); // limiter only for login
+// --- API Routes ---
+// Apply the rate limiter specifically to sensitive auth endpoints
+app.use("/api/users/login", authLimiter);
+app.use("/api/users/register", authLimiter);
+app.use("/api/users/forgot-password", authLimiter);
+
+// Register all your application routes
 app.use("/api/users", userRoutes);
+app.use("/api/notes", noteRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/suggestions", suggestionRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/admin", adminRoutes);
 
-// --- Static file serving (for uploads/images) ---
-app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
-// --- Health check route ---
-app.get("/", (req, res) => {
-  res.send("✅ Learnify Backend is running.");
+// --- Static file serving for PDF uploads ---
+// Serves files from the /uploads directory at the /uploads URL
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// --- Health Check Route ---
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "✅ Learnify Backend is running." });
 });
 
-// --- Global error handler (optional) ---
+// --- Global Error Handler ---
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({ message: "Server Error" });
+  console.error("❌ Unhandled Application Error:", err.stack);
+  res.status(500).json({ error: "Something went wrong on the server!" });
 });
 
-// --- Start server ---
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// Export the configured app instance
+module.exports = app;
