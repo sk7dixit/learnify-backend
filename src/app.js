@@ -48,6 +48,7 @@ const authLimiter = rateLimit({
   message: "Too many login or registration attempts. Please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
+  trustProxy: true,
 });
 
 // --- API Routes ---
