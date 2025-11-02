@@ -10,18 +10,21 @@ async function createUser(name, age, email, hashedPassword, role, verificationTo
   return result.rows[0];
 }
 
+// FIX: Use ILIKE for case-insensitive search
 async function findUserByEmail(email) {
-  const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+  const result = await pool.query("SELECT * FROM users WHERE email ILIKE $1", [email]);
   return result.rows[0];
 }
 
+// FIX: Use ILIKE for case-insensitive search
 async function findUserByUsername(username) {
-  const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+  const result = await pool.query("SELECT * FROM users WHERE username ILIKE $1", [username]);
   return result.rows[0];
 }
 
+// FIX: Use ILIKE for case-insensitive search in login identifier
 async function findUserByEmailOrUsername(identifier) {
-  const result = await pool.query("SELECT * FROM users WHERE email = $1 OR username = $1", [identifier]);
+  const result = await pool.query("SELECT * FROM users WHERE email ILIKE $1 OR username ILIKE $1", [identifier]);
   return result.rows[0];
 }
 
@@ -57,25 +60,24 @@ async function updateUserProfile(userId, fields) {
     const queryValues = [];
     let index = 1;
 
-    // Map frontend camelCase names to backend snake_case column names
-    const fieldMap = {
-        name: fields.name,
-        age: fields.age,
-        mobile_number: fields.mobileNumber,
-        school_college: fields.schoolCollege,
-        bio: fields.bio
+    const columnMap = {
+        name: 'name',
+        age: 'age',
+        mobileNumber: 'mobile_number',
+        schoolCollege: 'school_college',
+        bio: 'bio'
     };
 
-    for (const [key, value] of Object.entries(fieldMap)) {
-        // Only add fields to the query that were actually provided
+    for (const [key, dbColumn] of Object.entries(columnMap)) {
+        const value = fields[key];
+
         if (value !== undefined && value !== null) {
-            queryParts.push(`${key} = $${index++}`);
+            queryParts.push(`${dbColumn} = $${index++}`);
             queryValues.push(value);
         }
     }
 
     if (queryParts.length === 0) {
-        // Find the existing user and return it if there's nothing to update
         const currentUser = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
         return currentUser.rows[0];
     }
@@ -87,7 +89,6 @@ async function updateUserProfile(userId, fields) {
     return result.rows[0];
 }
 
-// **THIS IS THE MISSING FUNCTION**
 async function updateUserFreeViews(userId, newViews) {
   await pool.query("UPDATE users SET free_views = $1 WHERE id = $2", [newViews, userId]);
 }

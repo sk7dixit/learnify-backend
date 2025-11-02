@@ -4,8 +4,9 @@ const pool = require('../src/config/db.js');
 
 const runMigration = async () => {
   console.log('Starting database migration...');
+
   try {
-    // This will now use the correctly configured pool from db.js
+    // Test the connection first
     await pool.query('SELECT NOW()');
     console.log('✅ Connected to PostgreSQL');
 
@@ -22,6 +23,7 @@ const runMigration = async () => {
     process.exit(1);
 
   } finally {
+    // FIX: Ensure the connection pool is always closed properly
     console.log('Closing database connection...');
     await pool.end();
     console.log('Connection closed. Build will now complete.');

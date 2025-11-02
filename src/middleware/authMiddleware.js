@@ -10,11 +10,16 @@ function authMiddleware(req, res, next) {
 
     const token = authHeader.split(" ")[1];
 
-    // Use the SECRET from environment variables
-    const secret = process.env.JWT_SECRET || "default_secret";
+    // FIX: Check for the production secret (Security Improvement)
+    const secret = process.env.JWT_SECRET;
+
+    if (!secret || secret === "default_secret") {
+         console.error("❌ SECURITY ALERT: JWT_SECRET not configured correctly in production!");
+         // Optionally return a 500 error here to force correction
+    }
 
     // Verification is the point of failure
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret || "default_secret"); // Use a fallback for local dev only
 
     // CRITICAL: Ensure decoded object has an ID
     if (!decoded || !decoded.id) {

@@ -1,27 +1,21 @@
-const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
 
-// This function handles the creation and sending of emails.
+// Set the API Key outside the function once
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// This function handles the creation and sending of emails using SendGrid API.
 async function sendEmailOtp(email, otp) {
   try {
-    // Log the attempt for debugging purposes
-    console.log(`Attempting to send OTP email to: ${email}`);
+    console.log(`Attempting to send OTP email via SendGrid to: ${email}`);
     console.log(`Using email user: ${process.env.EMAIL_USER}`);
 
-    // Create a transporter object using the SMTP transport protocol
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      secure: false, // true for 465, false for other ports like 587
-      auth: {
-        user: process.env.EMAIL_USER, // Your sender email address from .env
-        pass: process.env.EMAIL_PASS, // Your sender email password or app password from .env
-      },
-    });
-
-    // Define the email options
-    const mailOptions = {
-      from: `"Learnify Support" <${process.env.EMAIL_USER}>`,
+    // Define the email options using SendGrid's format
+    const msg = {
       to: email,
+      from: {
+        email: process.env.EMAIL_USER,
+        name: "Learnify Support",
+      },
       subject: "Your Learnify Verification Code",
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
@@ -36,16 +30,17 @@ async function sendEmailOtp(email, otp) {
       `,
     };
 
-    // Send the email
-    const info = await transporter.sendMail(mailOptions);
+    // Send the email using the API. This uses standard HTTP/HTTPS ports.
+    const info = await sgMail.send(msg);
 
-    // Log the success message for confirmation
-    console.log("✅ OTP Email sent successfully:", info.response);
+    console.log("✅ OTP Email sent successfully:", info[0].statusCode);
 
   } catch (error) {
-    // Log any errors that occur during the process
-    console.error("❌ CRITICAL ERROR sending OTP email:", error);
-    // You might want to throw the error to be handled by the controller
+    // SendGrid errors often contain a response object with more details
+    console.error(
+      "❌ CRITICAL ERROR sending OTP email via SendGrid:",
+      error.response ? error.response.body : error
+    );
     throw new Error("Failed to send OTP email.");
   }
 }

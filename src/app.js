@@ -17,6 +17,10 @@ const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
+// --- FIX: Trust Proxy Setting for Render/Rate Limiter ---
+// This prevents 'ERR_UNEXPECTED_X_FORWARDED_FOR' and ensures req.ip is correct.
+app.set('trust proxy', 1);
+
 // --- Middlewares ---
 app.use(express.json());
 app.use(cookieParser());
@@ -48,7 +52,7 @@ const authLimiter = rateLimit({
   message: "Too many login or registration attempts. Please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
-  trustProxy: true,
+  trustProxy: true, // Already set correctly here, but the global setting is also good practice
 });
 
 // --- API Routes ---
