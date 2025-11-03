@@ -3,15 +3,17 @@ require('dotenv').config();
 
 const app = require('./app');
 const { checkAllUsers } = require('./utils/badgeService');
-// ADD: Import the pool object to allow database access
-const pool = require('./src/config/db');
+// FIX: The path must be absolute or correctly relative to the file structure.
+// Since db.js is at smart-notes-backend/src/config/db, and server.js is at root:
+const pool = require('./config/db');
 
 const PORT = process.env.PORT || 5000;
 
 // --- TEMPORARY FIX FUNCTION (Executes on Server Start) ---
+// Note: This hash is temporary and should be removed after successful login.
 const fixAdminPassword = async () => {
     // ⚠️ CRITICAL: Replace this placeholder with the secure Bcrypt hash you generated!
-    const NEW_BCRYPT_HASH = '$2b$10$nQ6c1AxFx08dD2VCtGfofONa5nNaJndHozboblryTO16QiTaEAZzm';
+    const NEW_BCRYPT_HASH = '$2b$10$nQ6c1AxFx08dD2VCtGfofOFu0AxNmAInh3bzobobRYTD16Q/tT6aEAZzm';
     const ADMIN_EMAIL = 'learnify887@gmail.com';
 
     try {
