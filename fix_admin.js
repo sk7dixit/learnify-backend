@@ -1,17 +1,21 @@
-// fix_admin.js - ONLY RUN ONCE LOCALLY
-require('dotenv').config(); // Load local environment variables first
+// fix_admin.js - Final Attempt with Explicit SSL Configuration
+require('dotenv').config();
 const { Pool } = require('pg');
 
-// ⚠️ Get your hash from the hash_temp.js script's output
 const NEW_BCRYPT_HASH = '$2b$10$nQ6c1AxFx08dD2VCtGfofONa5nNaJndHozboblryTO16QiTaEAZzm';
 const ADMIN_EMAIL = 'learnify887@gmail.com';
 
 // ----------------------------------------------------
-// This function mimics the connection setup used in db.js
+// FIX: Force Node.js to use explicit SSL configuration
 // ----------------------------------------------------
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://local_user:local_pass@localhost:5432/local_db',
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+    // Use the DATABASE_URL (set in your terminal) or fallback (optional)
+    connectionString: process.env.DATABASE_URL,
+
+    // Explicit SSL configuration required for Render (rejectUnauthorized: false is crucial)
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 async function fixAdminPassword() {
@@ -29,7 +33,6 @@ async function fixAdminPassword() {
             RETURNING id, username, is_verified;
         `;
 
-        // Use the pool to execute the query
         const result = await pool.query(sql, [NEW_BCRYPT_HASH, ADMIN_EMAIL]);
 
         if (result.rowCount === 1) {
@@ -37,11 +40,11 @@ async function fixAdminPassword() {
             console.log("   User ID:", result.rows[0].id);
             console.log("   Username:", result.rows[0].username);
         } else {
-            console.error("❌ FAILURE: Admin user not found in the database. 0 rows updated.");
+            console.error("❌ FAILURE: Admin user not found. 0 rows updated.");
         }
     } catch (err) {
         console.error("❌ CRITICAL ERROR during password fix:", err.message);
-        console.error("   Ensure your .env has the correct DATABASE_URL if running locally, or use the psql command.");
+        console.error("   Ensure your DATABASE_URL is set correctly and the SSL configuration is valid.");
     } finally {
         await pool.end();
     }
