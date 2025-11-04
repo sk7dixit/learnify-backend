@@ -20,7 +20,7 @@ async function sendEmailOtp(email, otp) {
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
           <h2>Your Verification Code</h2>
-          <p>Thank you for using Learnify. Please use the following One-Time Password (OTP) to complete your action.</p>
+          <p>Thank you for using OriNotes. Please use the following One-Time Password (OTP) to complete your action.</p>
           <p style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #1a73e8;">${otp}</p>
           <p>This code is valid for 5 minutes.</p>
           <p>If you did not request this code, please ignore this email.</p>
