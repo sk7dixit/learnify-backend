@@ -16,7 +16,7 @@ async function sendEmailOtp(email, otp) {
         email: process.env.EMAIL_USER,
         name: "OriNotes Support",
       },
-      subject: "Your Learnify Verification Code",
+      subject: "Your OriNotes Verification Code",
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
           <h2>Your Verification Code</h2>
