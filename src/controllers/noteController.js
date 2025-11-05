@@ -268,8 +268,18 @@ async function serveNoteWithWatermark(req, res) {
         if (!note) {
             return res.status(404).json({ error: "Note not found." });
         }
+
+        // FIX 1: Correct path for uploaded PDFs. note.pdf_path stores '/uploads/filename.pdf'
+        // The path needs to go up one level (to src) and then to the uploads folder at the root.
         const notePath = path.join(__dirname, '..', '..', 'uploads', path.basename(note.pdf_path));
-        const logoPath = path.join(__dirname, '..', '..', 'logo.png');
+
+        // FIX 2: Correct path for the logo file, which is inside src/assets/
+        // __dirname (controllers) -> '..' (src) -> 'assets' -> 'learnify-logo.png'
+        // Assuming your logo is named 'learnify-logo.png' based on your folder structure.
+        const logoPath = path.join(__dirname, '..', 'assets', 'learnify-logo.png');
+
+        // ----------------------------------------------------------------------------------
+
         const pdfBytes = await fs.readFile(notePath);
         const logoBytes = await fs.readFile(logoPath);
         const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -296,7 +306,8 @@ async function serveNoteWithWatermark(req, res) {
     } catch (err) {
         console.error("❌ Error serving PDF:", err.message);
         if (err.code === 'ENOENT') {
-            return res.status(500).json({ error: "Could not serve the note. A required asset (like the logo) might be missing on the server." });
+            // Updated error message to be more specific based on the path fix
+            return res.status(500).json({ error: "Could not serve the note. PDF file or logo asset is missing on the server." });
         }
         res.status(500).json({ error: "Could not serve the note." });
     }
