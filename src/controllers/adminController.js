@@ -1,8 +1,8 @@
-// src/controllers/adminController.js
 const pool = require('../config/db');
 const { allBadges } = require('../utils/badgeService');
 
-// ... (getDashboardData, getActiveUsers, and other functions remain the same) ...
+// --- Your existing controller functions ---
+
 async function getDashboardData(req, res) {
     try {
         const [
@@ -152,7 +152,6 @@ async function getBadgeData(req, res) {
     }
 }
 
-// --- THIS IS THE NEW FUNCTION ---
 async function getAllNotes(req, res) {
     try {
         const result = await pool.query(
@@ -167,25 +166,27 @@ async function getAllNotes(req, res) {
         res.status(500).json({ error: "Failed to fetch all notes." });
     }
 }
-// --- NEW FUNCTION TO ADD ---
-exports.deleteUser = async (req, res, next) => {
+
+// --- NEW FUNCTION: deleteUser (Using PostgreSQL Logic) ---
+async function deleteUser(req, res, next) {
     try {
-        // The user ID is retrieved from the URL parameter defined in adminRoutes.js
         const userId = req.params.id;
 
-        // ⚠️ Placeholder: You must replace 'User.findByIdAndDelete' with your actual
-        // database interaction method (e.g., User.destroy, db.collection.deleteOne, etc.)
-        const deletedUser = await User.findByIdAndDelete(userId);
+        // Use PostgreSQL's DELETE command via pool.query
+        const result = await pool.query(
+            "DELETE FROM users WHERE id = $1",
+            [userId]
+        );
 
-        if (!deletedUser) {
-            // If the user ID doesn't match any record
+        if (result.rowCount === 0) {
+            // No row was deleted, meaning the user ID was not found.
             return res.status(404).json({
                 status: 'fail',
                 message: `No user found with ID ${userId}`
             });
         }
 
-        // Standard response for successful deletion (204 No Content)
+        // 204 No Content is the standard response for successful DELETE
         res.status(204).json({
             status: 'success',
             data: null
@@ -193,22 +194,18 @@ exports.deleteUser = async (req, res, next) => {
 
     } catch (error) {
         console.error("Error deleting user:", error);
-        // Pass the error to the global error handler
-        res.status(500).json({
-            status: 'error',
-            message: 'Server error during user deletion.'
-        });
-        // You might use next(error) here if you have a global error middleware
+        // Use next(error) to send the error to the global Express handler
+        next(error);
     }
-};
+}
 
 module.exports = {
   getDashboardData,
   getActiveUsers,
   getAppSettings,
-  deleteUser,
   updateAppSetting,
   getUserSubmissions,
   getBadgeData,
-  getAllNotes, // <-- Export the new function
+  getAllNotes,
+  deleteUser, // <--- Now correctly defined and exported
 };
