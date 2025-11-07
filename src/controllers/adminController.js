@@ -167,12 +167,46 @@ async function getAllNotes(req, res) {
         res.status(500).json({ error: "Failed to fetch all notes." });
     }
 }
+// --- NEW FUNCTION TO ADD ---
+exports.deleteUser = async (req, res, next) => {
+    try {
+        // The user ID is retrieved from the URL parameter defined in adminRoutes.js
+        const userId = req.params.id;
 
+        // ⚠️ Placeholder: You must replace 'User.findByIdAndDelete' with your actual
+        // database interaction method (e.g., User.destroy, db.collection.deleteOne, etc.)
+        const deletedUser = await User.findByIdAndDelete(userId);
+
+        if (!deletedUser) {
+            // If the user ID doesn't match any record
+            return res.status(404).json({
+                status: 'fail',
+                message: `No user found with ID ${userId}`
+            });
+        }
+
+        // Standard response for successful deletion (204 No Content)
+        res.status(204).json({
+            status: 'success',
+            data: null
+        });
+
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        // Pass the error to the global error handler
+        res.status(500).json({
+            status: 'error',
+            message: 'Server error during user deletion.'
+        });
+        // You might use next(error) here if you have a global error middleware
+    }
+};
 
 module.exports = {
   getDashboardData,
   getActiveUsers,
   getAppSettings,
+  deleteUser,
   updateAppSetting,
   getUserSubmissions,
   getBadgeData,
