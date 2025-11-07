@@ -19,10 +19,14 @@ const createUserPayload = (user, isSubscriptionEnabled) => {
 
 async function registerUser(req, res) {
   try {
-    const { name, age, email, password, mobileNumber, username } = req.body;
+    // MODIFIED: Removed 'age' from destructuring.
+    const { name, email, password, mobileNumber, username } = req.body;
+
+    // MODIFIED: Removed 'age' from validation.
     if (!name || !email || !password || !mobileNumber || !username) {
-      return res.status(400).json({ error: "All fields are required" });
+      return res.status(400).json({ error: "All required fields are needed: name, email, password, mobileNumber, username" });
     }
+
     const existingEmail = await findUserByEmail(email);
     if (existingEmail) {
       return res.status(400).json({ error: "User already exists with this email" });
@@ -33,7 +37,11 @@ async function registerUser(req, res) {
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const role = email === process.env.ADMIN_EMAIL ? "admin" : "user";
-    await createUser(name, age, email, hashedPassword, role, null, mobileNumber, username);
+
+    // MODIFIED: Removed 'age' from the function call.
+    // The createUser function in userModel.js must match this new signature (7 parameters).
+    await createUser(name, email, hashedPassword, role, null, mobileNumber, username);
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await pool.query(

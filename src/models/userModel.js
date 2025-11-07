@@ -1,11 +1,12 @@
 const pool = require("../config/db");
 
-async function createUser(name, age, email, hashedPassword, role, verificationToken, mobileNumber, username) {
+async function createUser(name, email, hashedPassword, role, verificationToken, mobileNumber, username) {
   const result = await pool.query(
-    `INSERT INTO users (name, age, email, password, role, is_verified, verification_token, mobile_number, username)
-     VALUES ($1, $2, $3, $4, $5, FALSE, $6, $7, $8)
+    `INSERT INTO users (name, email, password, role, is_verified, verification_token, mobile_number, username)
+     VALUES ($1, $2, $3, $4, FALSE, $5, $6, $7)
      RETURNING id, name, email, role, is_verified, mobile_number, free_views, created_at, username`,
-    [name, age, email, hashedPassword, role, verificationToken, mobileNumber, username]
+    // Parameters shifted: $1=name, $2=email, $3=password, $4=role, $5=token, $6=mobile, $7=username
+    [name, email, hashedPassword, role, verificationToken, mobileNumber, username]
   );
   return result.rows[0];
 }
@@ -60,13 +61,17 @@ async function updateUserProfile(userId, fields) {
     const queryValues = [];
     let index = 1;
 
+    // MODIFIED: Removed 'age' from columnMap.
     const columnMap = {
         name: 'name',
-        age: 'age',
+        // age: 'age', // REMOVED
         mobileNumber: 'mobile_number',
         schoolCollege: 'school_college',
         bio: 'bio'
     };
+
+    // ... (rest of updateUserProfile function remains the same)
+    // The rest of the function relies on columnMap, so removing 'age' here is sufficient.
 
     for (const [key, dbColumn] of Object.entries(columnMap)) {
         const value = fields[key];
