@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const pool = require("../config/db");
 const {
   createUser, findUserByEmail, findUserByUsername, findUserByEmailOrUsername,
-  verifyUser, findUserById, updateUserPassword, updateUserProfile, updateUserLastLogin, findUserByVerificationToken
+  verifyUser, findUserById, updateUserPassword, updateUserProfile, updateUserLastLogin, findUserByVerificationToken, updateTwoFactorSecret, enableTwoFactor, disableTwoFactor
 } = require("../models/userModel");
 const generateToken = require("../utils/generateToken");
 const { sendEmailOtp } = require("../utils/sendEmail");
@@ -52,7 +52,7 @@ async function registerUser(req, res) {
 
 async function loginUser(req, res) {
   try {
-    const { identifier, password } = req.body;
+    const { identifier, password, twoFactorCode } = req.body; // Expecting 2FA code now
     if (!identifier || !password) {
       return res.status(400).json({ error: "Identifier and password are required" });
     }
@@ -67,21 +67,119 @@ async function loginUser(req, res) {
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
+
+    // --- 2FA CHECK ---
+    if (user.is_two_factor_enabled) {
+      if (!twoFactorCode) {
+        // First attempt, user needs to provide 2FA code
+        return res.status(403).json({ error: "2FA required", twoFactorRequired: true });
+      }
+
+      const verified = speakeasy.totp.verify({
+        secret: user.two_factor_secret,
+        encoding: 'base32',
+        token: twoFactorCode,
+      });
+
+      if (!verified) {
+        return res.status(403).json({ error: "Invalid 2FA code", twoFactorRequired: true });
+      }
+    }
+    // --- END 2FA CHECK ---
+
     await updateUserLastLogin(user.id);
     const settingsResult = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'is_subscription_enabled'");
     const isSubscriptionEnabled = settingsResult.rows[0]?.setting_value ?? false;
 
+    // Fetch fresh user data after successful 2FA/login
+    const freshUser = await findUserById(user.id);
+
     res.json({
       message: "Login successful",
-      user: createUserPayload(user, isSubscriptionEnabled),
-      token: generateToken(user),
+      user: createUserPayload(freshUser, isSubscriptionEnabled),
+      token: generateToken(freshUser),
     });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed", details: err.message });
   }
 }
+async function generateTwoFactorSecret(req, res) {
+  try {
+    const userId = req.user.id;
+    const secret = speakeasy.generateSecret({
+      name: `OriNotes:${req.user.username}`, // Use app name and username
+    });
 
+    // Store the secret temporarily (or overwrite existing)
+    await updateTwoFactorSecret(userId, secret.base32);
+
+    // Generate QR code data URL
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+
+    res.json({
+      secret: secret.base32,
+      qrCodeUrl,
+    });
+  } catch (err) {
+    console.error("❌ Error generating 2FA secret:", err.message);
+    res.status(500).json({ error: "Failed to generate 2FA secret." });
+  }
+}
+
+async function verifyTwoFactorSetup(req, res) {
+  try {
+    const { token, secret } = req.body;
+    const userId = req.user.id;
+
+    const verified = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: token,
+    });
+
+    if (verified) {
+      await enableTwoFactor(userId);
+      const user = await findUserById(userId);
+      // Refresh user data in token/session to include is_two_factor_enabled: true
+      const settingsResult = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'is_subscription_enabled'");
+      const isSubscriptionEnabled = settingsResult.rows[0]?.setting_value ?? false;
+
+      return res.json({
+        message: "✅ 2FA successfully enabled.",
+        user: createUserPayload(user, isSubscriptionEnabled),
+        token: generateToken(user),
+      });
+    } else {
+      // If verification fails, clear the temporary secret for security
+      await updateTwoFactorSecret(userId, null, false);
+      res.status(400).json({ error: "❌ Invalid verification code. 2FA setup failed." });
+    }
+  } catch (err) {
+    console.error("❌ Error verifying 2FA setup:", err.message);
+    res.status(500).json({ error: "Failed to verify 2FA setup." });
+  }
+}
+
+async function disableTwoFactorAuth(req, res) {
+  try {
+    await disableTwoFactor(req.user.id);
+    const user = await findUserById(req.user.id);
+
+    // Refresh user data in token/session
+    const settingsResult = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'is_subscription_enabled'");
+    const isSubscriptionEnabled = settingsResult.rows[0]?.setting_value ?? false;
+
+    res.json({
+      message: "✅ 2FA successfully disabled.",
+      user: createUserPayload(user, isSubscriptionEnabled),
+      token: generateToken(user),
+    });
+  } catch (err) {
+    console.error("❌ Error disabling 2FA:", err.message);
+    res.status(500).json({ error: "Failed to disable 2FA." });
+  }
+}
 async function requestLoginOtp(req, res) {
     try {
         const { identifier } = req.body;
@@ -388,4 +486,7 @@ module.exports = {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  generateTwoFactorSecret,
+  verifyTwoFactorSetup,
+  disableTwoFactorAuth,
 };

@@ -92,6 +92,29 @@ async function updateUserProfile(userId, fields) {
 async function updateUserFreeViews(userId, newViews) {
   await pool.query("UPDATE users SET free_views = $1 WHERE id = $2", [newViews, userId]);
 }
+// --- NEW FUNCTIONS FOR 2FA ---
+
+async function updateTwoFactorSecret(userId, secret, isEnabled = false) {
+  const result = await pool.query(
+    "UPDATE users SET two_factor_secret = $1, is_two_factor_enabled = $2 WHERE id = $3 RETURNING id, two_factor_secret, is_two_factor_enabled",
+    [secret, isEnabled, userId]
+  );
+  return result.rows[0];
+}
+
+async function enableTwoFactor(userId) {
+  await pool.query(
+    "UPDATE users SET is_two_factor_enabled = TRUE WHERE id = $1",
+    [userId]
+  );
+}
+
+async function disableTwoFactor(userId) {
+  await pool.query(
+    "UPDATE users SET two_factor_secret = NULL, is_two_factor_enabled = FALSE WHERE id = $1",
+    [userId]
+  );
+}
 
 
 module.exports = {
@@ -107,4 +130,7 @@ module.exports = {
   findUserByVerificationToken,
   updateUserProfile,
   updateUserFreeViews,
+  updateTwoFactorSecret,
+  enableTwoFactor,
+  disableTwoFactor,
 };

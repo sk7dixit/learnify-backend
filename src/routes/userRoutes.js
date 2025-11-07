@@ -14,6 +14,9 @@ const {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  generateTwoFactorSecret, // <-- NEW
+  verifyTwoFactorSetup,    // <-- NEW
+  disableTwoFactorAuth,
 } = require("../controllers/userController");
 const authMiddleware = require("../middleware/authMiddleware");
 
@@ -42,5 +45,10 @@ router.get("/my-stats", authMiddleware, getUserStats);
 router.get("/profile", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, updateMyProfile);
 router.get("/profile/:username", authMiddleware, getPublicProfile);
+
+// --- 2FA MANAGEMENT (NEW SECTION) ---
+router.post('/2fa/generate-secret', authMiddleware, generateTwoFactorSecret);
+router.post('/2fa/verify-setup', authMiddleware, verifyTwoFactorSetup);
+router.post('/2fa/disable', authMiddleware, disableTwoFactorAuth);
 
 module.exports = router;
