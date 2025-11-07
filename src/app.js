@@ -1,4 +1,3 @@
-// backend/app.js
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -32,6 +31,10 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
+      // ⬇️ FIX: Adding ports 3000 to resolve the CORS error seen in the console
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      // ⬆️ FIX: Adding ports 3000 to resolve the CORS error seen in the console
       "https://orinotes.netlify.app", // Your live frontend URL
       process.env.FRONTEND_URL,
     ].filter(Boolean),
