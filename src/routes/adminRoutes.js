@@ -1,4 +1,3 @@
-// src/routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
 const {
@@ -8,7 +7,8 @@ const {
     getBadgeData,
     updateAppSetting,
     getUserSubmissions,
-    getAllNotes // <-- IMPORT NEW FUNCTION
+    getAllNotes,
+    deleteUser // <-- NEW FUNCTION IMPORTED
 } = require('../controllers/adminController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
@@ -17,9 +17,11 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 router.get('/dashboard', authMiddleware, adminMiddleware, getDashboardData);
 router.get('/active-users', authMiddleware, adminMiddleware, getActiveUsers);
 router.get('/user-submissions', authMiddleware, adminMiddleware, getUserSubmissions);
-
-// --- THIS IS THE NEW ROUTE ---
 router.get('/all-notes', authMiddleware, adminMiddleware, getAllNotes);
+
+// --- NEW: User Deletion Route ---
+// This route handles the permanent removal of a user by their ID.
+router.delete('/users/:id', authMiddleware, adminMiddleware, deleteUser);
 
 // --- App Settings Routes ---
 router.get('/settings', authMiddleware, adminMiddleware, getAppSettings);
