@@ -2,9 +2,11 @@
 const express = require('express');
 const router = express.Router();
 
-// Middlewares: adjust path if your files are in a different folder
-const authMiddleware = require('../authMiddleware') || require('../middlewares/authMiddleware');
-const adminMiddleware = require('../adminMiddleware') || require('../middlewares/adminMiddleware');
+// Middlewares: FIXING THE PATH. Assuming middleware files are in src/middleware/
+// If the file is src/routes/noteRoutes.js, we need to go up one level (..)
+// then down into the correct middleware directory.
+const authMiddleware = require('../middleware/authMiddleware');
+const adminMiddleware = require('../middleware/adminMiddleware');
 
 // Controller
 const noteController = require('../controllers/noteController');
