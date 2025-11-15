@@ -1,85 +1,108 @@
 // src/routes/noteRoutes.js
-const express = require("express");
-const multer = require("multer");
-const authMiddleware = require("../middleware/authMiddleware");
-const adminMiddleware = require("../middleware/adminMiddleware");
-const checkSubscription = require("../middleware/checkSubscription");
-const pool = require('../config/db');
-
-const {
-  addNote,
-  getFilteredNotes,
-  getSingleNote,
-  uploadUserNote,
-  getPendingNotes,
-  reviewNote,
-  addFavourite,
-  removeFavourite,
-  getFavourites,
-  serveNoteWithWatermark,
-  editNote,
-  removeNote,
-  getMyNotes,
-  requestNoteAccess,
-  getAccessRequests,
-  respondToAccessRequest,
-  getFreeNote,
-  getFavouriteIds,
-  deleteMyNotes,
-  getNoteRatings,
-  addNoteRating,
-  getSharedNotes,
-} = require("../controllers/noteController");
-
+const express = require('express');
 const router = express.Router();
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => cb(null, Date.now() + require('path').extname(file.originalname)),
+// Middlewares: adjust path if your files are in a different folder
+const authMiddleware = require('../authMiddleware') || require('../middlewares/authMiddleware');
+const adminMiddleware = require('../adminMiddleware') || require('../middlewares/adminMiddleware');
+
+// Controller
+const noteController = require('../controllers/noteController');
+
+// Use the controller's multer uploadMiddleware (memory storage)
+const uploadMiddleware = noteController.uploadMiddleware;
+
+// ----------------- Public / Browsing -----------------
+
+// GET /api/notes/filtered?course=...&subject=...&q=...
+router.get('/filtered', noteController.getFilteredNotes);
+
+// GET /api/notes/available-subjects?course=...
+router.get('/available-subjects', noteController.getAvailableSubjects);
+
+// GET /api/notes/free/latest
+router.get('/free/latest', noteController.getFreeNote);
+
+// GET /api/notes/:id - note metadata
+router.get('/:id', noteController.getSingleNote);
+
+// Serve PDF view/stream (watermarked) - protected
+router.get('/:id/view', authMiddleware, noteController.serveNoteWithWatermark);
+router.get('/:id/download', authMiddleware, noteController.serveNoteWithWatermark); // same handler for download
+
+// ----------------- Ratings & Favourites -----------------
+router.get('/:noteId/ratings', noteController.getNoteRatings);
+router.post('/:noteId/rate', authMiddleware, noteController.addNoteRating);
+
+router.get('/favourites/ids', authMiddleware, noteController.getFavouriteIds);
+router.get('/favourites', authMiddleware, noteController.getFavourites);
+router.post('/favourites/:id', authMiddleware, noteController.addFavourite);
+router.delete('/favourites/:id', authMiddleware, noteController.removeFavourite);
+
+// ----------------- PHASE 2: COMMUNITY CURATION (NEW) -----------------
+// POST /api/notes/:noteId/report
+router.post('/:noteId/report', authMiddleware, noteController.reportNote);
+
+
+// ----------------- Uploads -----------------
+
+// Single upload preserved (uses uploadMiddleware)
+router.post('/upload',
+  authMiddleware,
+  uploadMiddleware.single('file'),
+  noteController.uploadUserNote
+);
+
+// Multi-upload (files[] + titles[]), up to configured max (controller also validates)
+router.post('/multi-upload',
+  authMiddleware,
+  uploadMiddleware.array('files[]', parseInt(process.env.MULTI_UPLOAD_MAX_FILES || '10', 10)),
+  noteController.handleMultiUpload
+);
+
+// ----------------- Access / Sharing -----------------
+router.post('/access/request/:noteId', authMiddleware, noteController.requestNoteAccess);
+router.put('/access/respond/:requestId', authMiddleware, adminMiddleware, noteController.respondToAccessRequest);
+
+router.get('/shared-with-me', authMiddleware, noteController.getSharedNotes);
+
+// ----------------- Admin review -----------------
+router.get('/admin/pending', authMiddleware, adminMiddleware, noteController.getPendingNotes);
+router.put('/admin/review/:noteId', authMiddleware, adminMiddleware, noteController.reviewNote);
+
+// Convenience aliases
+router.put('/admin/approve/:noteId', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    req.body.action = 'approve';
+    await noteController.reviewNote(req, res, next);
+  } catch (e) { next(e); }
 });
-const upload = multer({ storage });
-
-// --- PUBLIC/GENERAL ROUTES ---
-router.get("/universities", async (req, res) => {
-    try {
-        const result = await pool.query(
-            "SELECT DISTINCT university_name FROM notes WHERE university_name IS NOT NULL AND university_name != '' AND approval_status = 'approved' ORDER BY university_name"
-        );
-        res.json(result.rows.map(row => row.university_name));
-    } catch (err) {
-        console.error("❌ Error fetching universities:", err.message);
-        res.status(500).json({ error: "Failed to fetch university list" });
-    }
+router.put('/admin/reject/:noteId', authMiddleware, adminMiddleware, async (req, res, next) => {
+  try {
+    req.body.action = 'reject';
+    await noteController.reviewNote(req, res, next);
+  } catch (e) { next(e); }
 });
-router.get("/filtered", authMiddleware, getFilteredNotes);
-router.get("/free", getFreeNote);
 
-// --- USER-SPECIFIC ROUTES (AUTH REQUIRED) ---
-router.post("/user-upload", authMiddleware, upload.single("file"), uploadUserNote);
-router.get("/favourites/ids", authMiddleware, getFavouriteIds);
-router.get("/favourites", authMiddleware, getFavourites);
-router.post("/favourites/:noteId", authMiddleware, addFavourite);
-router.delete("/favourites/:noteId", authMiddleware, removeFavourite);
-router.post('/access/request/:noteId', authMiddleware, requestNoteAccess);
-router.get('/access/requests', authMiddleware, getAccessRequests);
-router.put('/access/respond/:requestId', authMiddleware, respondToAccessRequest);
-router.get("/my-notes", authMiddleware, getMyNotes);
-router.delete("/my-notes", authMiddleware, deleteMyNotes);
-router.get("/shared-with-me", authMiddleware, getSharedNotes);
+// ----------------- Notes management -----------------
+// Edit note metadata
+router.put('/:id', authMiddleware, noteController.editNote);
 
-// --- NOTE VIEWING (SUBSCRIPTION CHECK APPLIES) ---
-router.get("/view/:id", authMiddleware, checkSubscription, serveNoteWithWatermark);
+// Delete note (owner/admin)
+router.delete('/:id', authMiddleware, noteController.removeNote);
 
-// --- ADMIN-ONLY ROUTES ---
-router.get("/details/:id", authMiddleware, adminMiddleware, getSingleNote);
-router.get("/pending-approval", authMiddleware, adminMiddleware, getPendingNotes);
-router.put("/review/:noteId", authMiddleware, adminMiddleware, reviewNote);
-router.post("/upload", authMiddleware, adminMiddleware, upload.single("file"), addNote);
-router.put("/:id", authMiddleware, adminMiddleware, editNote);
-router.delete("/:id", authMiddleware, adminMiddleware, removeNote);
+// Batch delete owned notes
+router.post('/delete', authMiddleware, noteController.deleteMyNotes);
 
-// --- RATING & REVIEW ROUTES ---
-router.get("/:noteId/ratings", authMiddleware, getNoteRatings);
-router.post("/:noteId/rate", authMiddleware, addNoteRating);
+// My notes
+router.get('/me', authMiddleware, noteController.getMyNotes);
 
+// Misc / fallback endpoints (versions etc.)
+router.post('/:id/version', authMiddleware, uploadMiddleware.single('file'), noteController.uploadNoteVersion || ((req, res) => res.status(501).json({ error: 'Not implemented' })));
+router.get('/:id/versions', noteController.getNoteVersions || ((req, res) => res.status(501).json({ error: 'Not implemented' })));
+
+// Admin extras
+router.get('/admin/user-submissions', authMiddleware, adminMiddleware, noteController.getUserSubmissions || ((req,res) => res.status(501).json({ error: 'Not implemented' })));
+
+// Export router
 module.exports = router;

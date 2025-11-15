@@ -1,3 +1,4 @@
+// src/routes/userRoutes.js
 const express = require("express");
 const {
   registerUser,
@@ -33,6 +34,7 @@ router.post("/verify-email-otp", verifyEmailOtp);
 router.get("/verify-email/:token", verifyEmail);
 
 // --- PASSWORD MANAGEMENT ---
+// Phase 6 endpoints (forgot / reset)
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.put("/change-password", authMiddleware, changePassword);
