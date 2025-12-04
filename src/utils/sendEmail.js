@@ -5,7 +5,7 @@ const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
 
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || `OriNotes <no-reply@${process.env.DOMAIN || 'example.com'}>`;
+const EMAIL_FROM = 'OriNotes Admin <helloworld760975@gmail.com>';
 
 // Init SendGrid if API key provided
 if (SENDGRID_API_KEY) {
