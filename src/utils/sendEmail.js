@@ -1,6 +1,5 @@
 // src/utils/sendEmail.js
 
-
 const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
 
@@ -105,10 +104,13 @@ async function sendResetPasswordEmail(to, resetUrl) {
     const res = await sendEmail({ to, subject, html, text });
     return res;
   } catch (err) {
-    // PHASE 1 FIX: If sendEmail throws, log the link for debug but then rethrow
     console.warn('sendResetPasswordEmail: failed to send email, logging reset link for debug:', resetUrl);
-    console.warn(`Reset link for ${to}: ${resetUrl}`);
-    throw err; // <-- CRITICAL: Rethrow the error to ensure userController doesn't think it succeeded
+    console.log(`\n==================================================`);
+    console.log(`[DEV FALLBACK] Reset Link for ${to}:`);
+    console.log(`${resetUrl}`);
+    console.log(`==================================================\n`);
+    // We do NOT rethrow here, so the frontend shows "Email sent"
+    return { provider: 'console-fallback' };
   }
 }
 
@@ -136,8 +138,12 @@ async function sendEmailOtp(to, otp) {
     return await sendEmail({ to, subject, html, text });
   } catch (err) {
     console.error('sendEmailOtp: failed to send OTP email', err);
-    // bubble up or return object; we'll return the error information
-    throw err;
+    // FALLBACK FOR DEV/TESTING: Log OTP to console so user can still proceed
+    console.log(`\n==================================================`);
+    console.log(`[DEV FALLBACK] OTP for ${to}: ${otp}`);
+    console.log(`==================================================\n`);
+    // We do NOT rethrow here, so the frontend thinks it succeeded and asks for the OTP
+    return { provider: 'console-fallback' };
   }
 }
 

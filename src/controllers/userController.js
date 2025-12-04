@@ -169,7 +169,7 @@ async function loginUser(req, res) {
       };
       res.cookie("refreshToken", rawToken, cookieOptions);
       // Optionally send login notification
-      sendLoginNotification(user.email, { ip: req.ip, agent: req.get("User-Agent") }).catch(() => {});
+      sendLoginNotification(user.email, { ip: req.ip, agent: req.get("User-Agent") }).catch(() => { });
       return res.json({
         message: "Login successful",
         user: createUserPayload(freshUser, isSubscriptionEnabled),
@@ -434,7 +434,7 @@ async function verifyEmailOtp(req, res) {
     // Mark verified, delete pending, clear OTPS
     await verifyUser(newUser.id);
     await pool.query("DELETE FROM pending_registrations WHERE email = $1", [email.toLowerCase().trim()]);
-    await pool.query("DELETE FROM otps WHERE email = $1", [email.toLowerCase().trim()]).catch(() => {});
+    await pool.query("DELETE FROM otps WHERE email = $1", [email.toLowerCase().trim()]).catch(() => { });
 
     await updateUserLastLogin(newUser.id);
     const settingsResult = await pool.query(
