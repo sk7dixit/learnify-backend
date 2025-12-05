@@ -106,6 +106,86 @@ function uploadBufferToCloudinary(buffer, publicId) {
 /**
  * POST /api/notes/multi-upload
  * Protected: req.user must be set by auth middleware
+ */
+async function handleMultiUpload(req, res) {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const userId = req.user.id;
+    const { titles, material_types, fields, courses, subjects, university_names, is_free } = req.body;
+
+    // Parse arrays (multipart/form-data sends arrays as multiple fields with same key or indexed keys)
+    // We expect the frontend to send arrays or single values.
+    // Helper to ensure array
+    const toArray = (val) => {
+      if (!val) return [];
+      return Array.isArray(val) ? val : [val];
+    };
+
+    const titleList = toArray(titles);
+    const typeList = toArray(material_types);
+    const fieldList = toArray(fields);
+    const courseList = toArray(courses);
+    const subjectList = toArray(subjects);
+    const uniList = toArray(university_names);
+    // is_free comes as an array of strings "true"/"false" or booleans
+    const isFreeList = toArray(is_free);
+
+    const createdNotes = [];
+    const errors = [];
+
+    for (let i = 0; i < req.files.length; i++) {
+      const f = req.files[i];
+      const title = titleList[i] || f.originalname;
+      const matType = typeList[i] || 'personal_material';
+      const isFreeVal = isFreeList[i] === 'true' || isFreeList[i] === true;
+
+      try {
+        // 1. Upload to Cloudinary
+        const randomHex = crypto.randomBytes(6).toString('hex');
+        const safeName = f.originalname.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\.-]/g, '');
+        const publicId = `${userId}_${Date.now()}_${randomHex}_${path.parse(safeName).name}`;
+
+        const uploadResult = await uploadBufferToCloudinary(f.buffer, publicId);
+
+        // 2. Insert into DB
+        // Construct insert query based on material type
+        let insertSql, insertVals;
+
+        if (matType === 'university_material') {
+          insertSql = `
+            INSERT INTO notes (
+              user_id, title, pdf_path, file_url, cloudinary_public_id,
+              material_type, university_name, course, subject,
+              is_free, approval_status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
+            RETURNING *
+          `;
+          insertVals = [
+            userId, title, null, uploadResult.secure_url, uploadResult.public_id,
+            'university_material', uniList[i] || null, courseList[i] || null, subjectList[i] || null,
+            isFreeVal
+          ];
+        } else {
+          // personal
+          const institutionType = ["Class 12", "Class 11", "Class 10"].includes(fieldList[i]) ? "School" : "College";
+          insertSql = `
+            INSERT INTO notes (
+              user_id, title, pdf_path, file_url, cloudinary_public_id,
+              material_type, institution_type, field, course, subject,
+              is_free, approval_status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
+            RETURNING *
+          `;
+          insertVals = [
+            userId, title, null, uploadResult.secure_url, uploadResult.public_id,
+            'personal_material', institutionType, fieldList[i] || null, courseList[i] || null, subjectList[i] || null,
+            isFreeVal
+          ];
+        }
+
         const result = await pool.query(insertSql, insertVals);
         createdNotes.push(result.rows[0]);
       } catch (err) {
@@ -766,12 +846,15 @@ async function getAllNotes(req, res) {
   }
 }
 
-async function getSharedNotes(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-async function requestNoteAccess(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-async function getAccessRequests(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-async function respondToAccessRequest(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-async function getNoteRatings(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-reviewNoteVersion,
+module.exports = {
+  uploadUserNote,
+  handleMultiUpload,
+  getPendingNotes,
+  reviewNote,
+  getFilteredNotes,
+  addNote,
+  getNoteById,
+  reviewNoteVersion,
   addFavourite,
   removeFavourite,
   getFavourites,
@@ -790,4 +873,6 @@ reviewNoteVersion,
   respondToAccessRequest,
   getNoteRatings,
   addNoteRating,
+  getAllNotes,
+  uploadNoteVersion
 };
