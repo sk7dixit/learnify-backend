@@ -53,4 +53,13 @@ router.post('/2fa/generate-secret', authMiddleware, generateTwoFactorSecret);
 router.post('/2fa/verify-setup', authMiddleware, verifyTwoFactorSetup);
 router.post('/2fa/disable', authMiddleware, disableTwoFactorAuth);
 
+// 1. Send OTP
+router.post("/forgot-password", sendForgotPasswordOtp);
+
+// 2. Verify OTP (Optional check before showing password field)
+router.post("/verify-reset-otp", verifyForgotPasswordOtp);
+
+// 3. Set New Password
+router.post("/reset-password", resetPasswordWithOtp);
+
 module.exports = router;

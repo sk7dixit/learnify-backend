@@ -659,7 +659,98 @@ async function getProfile(req, res) {
     res.status(500).json({ error: "Failed to get profile" });
   }
 }
+// NEW: FORGOT PASSWORD (OTP FLOW)
+// ----------------------------------------------------------------
 
+// Step 1: Send OTP to email
+async function sendForgotPasswordOtp(req, res) {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  try {
+    // 1. Check if user exists
+    const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (userResult.rowCount === 0) {
+      // Return 404 so frontend knows to show "User not found"
+      return res.status(404).json({ error: "User not found with this email." });
+    }
+
+    // 2. Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Save OTP to DB (Insert or Update existing)
+    await pool.query(
+      `INSERT INTO otps (email, otp, created_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (email) DO UPDATE SET otp = $2, created_at = NOW()`,
+      [email, otp]
+    );
+
+    // 4. Send Email
+    await sendEmailOtp(email, otp);
+
+    res.json({ message: "OTP sent to your email successfully." });
+  } catch (err) {
+    console.error("Forgot Password OTP error:", err);
+    res.status(500).json({ error: "Failed to send OTP." });
+  }
+}
+
+// Step 2: Verify OTP (Used when user clicks "Verify" before entering new password)
+async function verifyForgotPasswordOtp(req, res) {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: "Email and OTP are required" });
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM otps WHERE email = $1 AND otp = $2 AND created_at > NOW() - INTERVAL '10 minutes'",
+      [email, otp]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(400).json({ error: "Invalid or expired OTP." });
+    }
+
+    res.json({ message: "OTP verified. You can now set a new password." });
+  } catch (err) {
+    console.error("Verify OTP error:", err);
+    res.status(500).json({ error: "Verification failed." });
+  }
+}
+
+// Step 3: Reset Password (Final step)
+async function resetPasswordWithOtp(req, res) {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json({ error: "Email, OTP, and New Password are required." });
+  }
+
+  try {
+    // 1. Verify OTP again (Secure check)
+    const otpResult = await pool.query(
+      "SELECT * FROM otps WHERE email = $1 AND otp = $2 AND created_at > NOW() - INTERVAL '10 minutes'",
+      [email, otp]
+    );
+
+    if (otpResult.rowCount === 0) {
+      return res.status(400).json({ error: "Invalid or expired OTP." });
+    }
+
+    // 2. Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 3. Update User Password
+    await pool.query("UPDATE users SET password = $1 WHERE email = $2", [hashedPassword, email]);
+
+    // 4. Delete used OTP
+    await pool.query("DELETE FROM otps WHERE email = $1", [email]);
+
+    res.json({ message: "Password changed successfully! You can now login." });
+  } catch (err) {
+    console.error("Reset Password error:", err);
+    res.status(500).json({ error: "Failed to reset password." });
+  }
+}
 async function updateMyProfile(req, res) {
   try {
     const user = await updateUserProfile(req.user.id, req.body);
@@ -683,6 +774,9 @@ module.exports = {
   getUserStats,
   getDashboardData,
   getProfile,
+  sendForgotPasswordOtp,
+  verifyForgotPasswordOtp,
+  resetPasswordWithOtp,
   updateMyProfile,
   forgotPassword,
   resetPassword,

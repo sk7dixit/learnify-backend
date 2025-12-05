@@ -67,9 +67,28 @@ async function clearAllChat(req, res) {
         res.status(500).json({ error: 'Failed to clear chat history.' });
     }
 }
+async function getAllChatMessages(req, res) {
+    try {
+        const messagesCollection = collection(db, 'chat_messages');
+        // Order by creation time if possible, otherwise just fetch
+        const q = query(messagesCollection, orderBy("created_at", "desc"));
+        const querySnapshot = await getDocs(q);
+
+        const messages = [];
+        querySnapshot.forEach((doc) => {
+            messages.push({ id: doc.id, ...doc.data() });
+        });
+
+        res.json(messages);
+    } catch (error) {
+        console.error('Error fetching chat messages:', error);
+        res.status(500).json({ error: 'Failed to fetch chat messages.' });
+    }
+}
 
 module.exports = {
     validateMessage,
     deleteChatMessage,
+    getAllChatMessages,
     clearAllChat,
 };
