@@ -69,6 +69,7 @@ router.put('/access/respond/:requestId', authMiddleware, adminMiddleware, noteCo
 router.get('/shared-with-me', authMiddleware, noteController.getSharedNotes);
 
 // ----------------- Admin review -----------------
+router.get('/admin/all', authMiddleware, adminMiddleware, noteController.getAllNotes);
 router.get('/admin/pending', authMiddleware, adminMiddleware, noteController.getPendingNotes);
 router.put('/admin/review/:noteId', authMiddleware, adminMiddleware, noteController.reviewNote);
 
@@ -104,7 +105,7 @@ router.post('/:id/version', authMiddleware, uploadMiddleware.single('file'), not
 router.get('/:id/versions', noteController.getNoteVersions || ((req, res) => res.status(501).json({ error: 'Not implemented' })));
 
 // Admin extras
-router.get('/admin/user-submissions', authMiddleware, adminMiddleware, noteController.getUserSubmissions || ((req,res) => res.status(501).json({ error: 'Not implemented' })));
+router.get('/admin/user-submissions', authMiddleware, adminMiddleware, noteController.getUserSubmissions || ((req, res) => res.status(501).json({ error: 'Not implemented' })));
 
 // Export router
 module.exports = router;

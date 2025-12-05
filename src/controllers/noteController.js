@@ -106,73 +106,6 @@ function uploadBufferToCloudinary(buffer, publicId) {
 /**
  * POST /api/notes/multi-upload
  * Protected: req.user must be set by auth middleware
- */
-async function handleMultiUpload(req, res) {
-  try {
-    const uploaderId = req.user?.id;
-    if (!uploaderId) return res.status(401).json({ error: 'Unauthorized' });
-
-    const files = req.files || [];
-    let titles = req.body['titles[]'] || req.body.titles || [];
-    const course = req.body.course || null;
-    const subject = req.body.subject || null;
-    const semester = req.body.semester || null;
-    const description = req.body.description || null;
-    const material_type = req.body.material_type || 'personal_material';
-    const isFree = (req.body.isFree === 'true' || req.body.isFree === '1' || req.body.isFree === true) ? true : false;
-
-    if (!files.length) return res.status(400).json({ error: 'No files uploaded' });
-    if (files.length > MAX_FILES) return res.status(400).json({ error: `Max ${MAX_FILES} files allowed per upload` });
-
-    // normalize titles
-    if (titles && !Array.isArray(titles) && typeof titles === 'string') titles = [titles];
-
-    if (Array.isArray(titles) && titles.length && titles.length !== files.length) {
-      return res.status(400).json({ error: 'Number of titles must match number of files' });
-    }
-
-    const createdNotes = [];
-    const errors = [];
-
-    for (let i = 0; i < files.length; i += 1) {
-      const f = files[i];
-      if (!f.buffer) {
-        errors.push({ file: f.originalname, error: 'Missing buffer' });
-        continue;
-      }
-
-      const defaultTitle = f.originalname.replace(/\.[^/.]+$/, '');
-      const noteTitle = (Array.isArray(titles) && titles[i] && titles[i].trim()) ? titles[i].trim() : defaultTitle;
-
-      const randomHex = crypto.randomBytes(6).toString('hex');
-      const safeName = f.originalname.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\.-]/g, '');
-      const publicId = `${uploaderId}_${Date.now()}_${randomHex}_${path.parse(safeName).name}`;
-
-      try {
-        const uploadResult = await uploadBufferToCloudinary(f.buffer, publicId);
-
-        // Create DB note row
-        const insertSql = `
-          INSERT INTO notes (
-            title, file_url, cloudinary_public_id, subject, course, semester,
-            user_id, is_free, approval_status, description, created_at, material_type
-          )
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(), $11)
-          RETURNING id, title, file_url, subject, course, semester, user_id, is_free, approval_status, created_at;
-        `;
-        const insertVals = [
-          noteTitle,
-          uploadResult.secure_url,
-          uploadResult.public_id,
-          subject,
-          course,
-          semester,
-          uploaderId,
-          isFree,
-          'pending',
-          description,
-          material_type
-        ];
         const result = await pool.query(insertSql, insertVals);
         createdNotes.push(result.rows[0]);
       } catch (err) {
@@ -785,26 +718,60 @@ async function deleteMyNotes(req, res) {
 
 // Placeholder functions
 async function editNote(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-async function removeNote(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
+async function removeNote(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const note = await findNoteById(id);
+    if (!note) {
+      return res.status(404).json({ error: "Note not found." });
+    }
+
+    // Allow if admin or if user owns the note
+    if (userRole !== 'admin' && note.user_id !== userId) {
+      return res.status(403).json({ error: "Unauthorized to delete this note." });
+    }
+
+    // Delete file from Cloudinary or Local Storage
+    if (note.cloudinary_public_id) {
+      await cloudinary.uploader.destroy(note.cloudinary_public_id, { resource_type: 'raw' });
+    } else if (note.pdf_path) {
+      const filePath = path.join(__dirname, '..', '..', 'uploads', path.basename(note.pdf_path));
+      await fs.unlink(filePath).catch(err => console.error("Failed to delete file:", err.message));
+    }
+
+    await deleteNote(id);
+    res.json({ message: "Note deleted successfully." });
+  } catch (err) {
+    console.error("Error deleting note:", err.message);
+    res.status(500).json({ error: "Failed to delete note." });
+  }
+}
+
+async function getAllNotes(req, res) {
+  try {
+    // Admin only: fetch ALL notes with user details
+    const result = await pool.query(`
+      SELECT n.*, u.username, u.email 
+      FROM notes n 
+      LEFT JOIN users u ON n.user_id = u.id 
+      ORDER BY n.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching all notes:", err.message);
+    res.status(500).json({ error: "Failed to fetch notes." });
+  }
+}
+
 async function getSharedNotes(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
 async function requestNoteAccess(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
 async function getAccessRequests(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
 async function respondToAccessRequest(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
 async function getNoteRatings(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-async function addNoteRating(req, res) { return res.status(501).json({ error: "Not Implemented" }); }
-
-
-module.exports = {
-  uploadMiddleware,
-  handleMultiUpload,
-  addNote,
-  getFilteredNotes,
-  getSingleNote,
-  uploadUserNote,
-  getPendingNotes,
-  reviewNote,
-  uploadNoteVersion,
-  reviewNoteVersion,
+reviewNoteVersion,
   addFavourite,
   removeFavourite,
   getFavourites,

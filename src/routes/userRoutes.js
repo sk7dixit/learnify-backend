@@ -37,9 +37,9 @@ router.post("/verify-email-otp", verifyEmailOtp);
 router.get("/verify-email/:token", verifyEmail);
 
 // --- PASSWORD MANAGEMENT ---
-// Phase 6 endpoints (forgot / reset)
-router.post("/forgot-password", forgotPassword);
-router.post("/reset-password", resetPassword);
+// Phase 6 endpoints (forgot / reset) - REPLACED BY OTP FLOW BELOW
+// router.post("/forgot-password", forgotPassword);
+// router.post("/reset-password", resetPassword);
 router.put("/change-password", authMiddleware, changePassword);
 
 // --- USER DATA & STATS ---
