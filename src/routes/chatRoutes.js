@@ -6,6 +6,7 @@ const adminMiddleware = require('../middleware/adminMiddleware'); // <-- Import 
 const {
     validateMessage,
     deleteChatMessage,
+    getAllChatMessages,
     clearAllChat
 } = require('../controllers/chatController');
 
@@ -13,7 +14,9 @@ const {
 router.post('/send', authMiddleware, validateMessage, (req, res) => {
     res.json({ message: "Conceptual: Message would be sent here." });
 });
-
+// --- NEW ADMIN ROUTE ---
+// Route to fetch all messages for the dashboard
+router.get('/all', authMiddleware, adminMiddleware, getAllChatMessages);
 // --- NEW ADMIN-ONLY ROUTES ---
 
 // Route for an admin to delete a specific message

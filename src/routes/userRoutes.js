@@ -15,6 +15,9 @@ const {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  sendForgotPasswordOtp,
+  verifyForgotPasswordOtp,
+  resetPasswordWithOtp
   generateTwoFactorSecret, // <-- NEW
   verifyTwoFactorSetup,    // <-- NEW
   disableTwoFactorAuth,
